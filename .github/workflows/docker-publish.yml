@@ -51,7 +51,7 @@ jobs:
         run: docker buildx create --name builder --use
 
       - name: Build image
-        run: docker buildx build . --file Dockerfile --tag $IMAGE_NAME --load           
+        run: docker buildx build . --file Dockerfile  --platform ${PLATFORMS} --tag $IMAGE_NAME --load           
       
       - name: Get the git commit ID from the build file
         run: echo "VERSION=$(docker run --rm $IMAGE_NAME git rev-parse --short HEAD)" >> $GITHUB_ENV
