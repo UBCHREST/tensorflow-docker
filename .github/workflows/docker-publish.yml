@@ -1,0 +1,81 @@
+name: Docker-Tensorflow-Publish
+
+on:
+  schedule:
+    # Recompile at 00:15 UTC on Sundays
+    - cron: '15 0 * * 0'
+    
+  push:
+    # Publish `main` as Docker `latest` image.
+    branches:
+      - main
+
+    # Publish `v1.2.3` tags as releases.
+    tags:
+      - v*
+
+  workflow_dispatch:
+    # Allow this event to be triggered in the github ui
+
+  # Run tests for any PRs.
+  pull_request:
+
+env:
+  IMAGE_NAME: tensorflow-build
+  PLATFORMS: linux/arm64,linux/amd64
+
+jobs:
+  # Run tests.
+  # See also https://docs.docker.com/docker-hub/builds/automated-testing/
+  test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Run tests
+        run: |
+            docker build . --file Dockerfile --tag $IMAGE_NAME
+
+  # Push image to GitHub Packages.
+  # See also https://docs.docker.com/docker-hub/builds/
+  push:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up docker
+        run: docker buildx create --name builder --use
+
+      - name: Build image
+        run: docker buildx build . --file Dockerfile --tag $IMAGE_NAME --load           
+      
+      - name: Get the git commit ID from the build file
+        run: echo "VERSION=$(docker run --rm $IMAGE_NAME git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Log into registry
+        run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ secrets.DOCKER_USER }} --password-stdin
+
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME
+
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+
+          docker buildx build . --file Dockerfile --platform ${PLATFORMS} --tag $IMAGE_ID:latest --tag $IMAGE_ID:$VERSION --push
+
+
+      - name: set version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v5
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_tag: ${{env.VERSION}}
+          tag_prefix: ""
