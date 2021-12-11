@@ -22,7 +22,7 @@ on:
 
 env:
   IMAGE_NAME: tensorflow-build
-  PLATFORMS: linux/amd64
+  PLATFORMS: linux/arm64,linux/amd64
 
 jobs:
   # Run tests.
@@ -72,7 +72,8 @@ jobs:
           echo IMAGE_ID=$IMAGE_ID
           echo COMMIT_HASH=$COMMIT_HASH
 
-          docker buildx build . --file Dockerfile --platform ${PLATFORMS} --tag $IMAGE_ID:latest --tag $IMAGE_ID:$COMMIT_HASH --push  --build-arg COMMIT_HASH=$COMMIT_HASH
+          docker buildx build . --file Dockerfile --tag $IMAGE_ID:latest --tag $IMAGE_ID:$COMMIT_HASH --push  --build-arg COMMIT_HASH=$COMMIT_HASH
+#          docker buildx build . --file Dockerfile --platform ${PLATFORMS} --tag $IMAGE_ID:latest --tag $IMAGE_ID:$COMMIT_HASH --push  --build-arg COMMIT_HASH=$COMMIT_HASH
 
       - name: set version and push tag
         id: tag_version
