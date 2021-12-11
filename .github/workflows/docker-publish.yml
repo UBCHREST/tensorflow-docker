@@ -1,10 +1,6 @@
 name: Docker-Tensorflow-Publish
 
 on:
-  schedule:
-    # Recompile at 00:15 UTC on Sundays
-    - cron: '15 0 * * 0'
-    
   push:
     # Publish `main` as Docker `latest` image.
     branches:
@@ -44,24 +40,11 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
-    steps:
-      - name: Maximize build space
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 512
-          swap-size-mb: 1024
-          remove-dotnet: 'true'
-          
+    steps:        
       - uses: actions/checkout@v2
 
       - name: Set up docker
         run: docker buildx create --name builder --use
-
-      - name: Build image
-        run: docker buildx build . --file Dockerfile --tag $IMAGE_NAME --load           
-      
-      - name: Get the git commit ID from the build file
-        run: echo "VERSION=$(docker run --rm $IMAGE_NAME git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Log into registry
         run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ secrets.DOCKER_USER }} --password-stdin
@@ -74,9 +57,8 @@ jobs:
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
 
           echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
 
-          docker buildx build . --file Dockerfile --platform ${PLATFORMS} --tag $IMAGE_ID:latest --tag $IMAGE_ID:$VERSION --push
+          docker buildx build . --file Dockerfile --platform ${PLATFORMS} --tag $IMAGE_ID:latest --push
 
 
       - name: set version and push tag
