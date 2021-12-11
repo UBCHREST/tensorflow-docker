@@ -50,7 +50,7 @@ jobs:
         run: docker buildx create --name builder --use
 
       - name: Get the git commit ID from the build file
-        run: echo "COMMIT_HASH=$(git ls-remote https://github.com/tensorflow/tensorflow.git HEAD | awk '{ print $1}'D)" >> $GITHUB_ENV
+        run: echo "COMMIT_HASH=$(git ls-remote https://github.com/tensorflow/tensorflow.git HEAD | awk '{ print substr($1, 1, 8)}'D)" >> $GITHUB_ENV
 
       - name: Log into registry
         run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ secrets.DOCKER_USER }} --password-stdin
@@ -58,7 +58,7 @@ jobs:
       - name: Build arm64 image
         run: |
           ARCH=arm64
-          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME:$VERSION:$ARCH
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME:$COMMIT_HASH:$ARCH
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
@@ -76,7 +76,7 @@ jobs:
       - name: Build amd64 image
         run: |
           ARCH=amd64
-          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME:$VERSION:$ARCH
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME:$COMMIT_HASH:$ARCH
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
@@ -94,11 +94,11 @@ jobs:
       - name: created manifest
         run: |
           docker manifest create \
-            ghcr.io/${{ github.repository }}/$IMAGE_NAME:$VERSION:latest \
-              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME:arm64 \
-              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME:amd64 
+            ghcr.io/${{ github.repository }}/$IMAGE_NAME:$COMMIT_HASH:latest \
+              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME:COMMIT_HASH:arm64 \
+              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME:COMMIT_HASH:amd64 
               
-          docker manifest push ghcr.io/${{ github.repository }}/$IMAGE_NAME:$VERSION:latest
+          docker manifest push ghcr.io/${{ github.repository }}/$IMAGE_NAME:$COMMIT_HASH:latest
 
       - name: set version and push tag
         id: tag_version
