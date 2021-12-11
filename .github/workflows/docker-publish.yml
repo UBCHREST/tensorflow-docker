@@ -45,14 +45,15 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
     steps:
-      - uses: actions/checkout@v2
-
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
         with:
           root-reserve-mb: 512
           swap-size-mb: 1024
           remove-dotnet: 'true'
+          
+      - uses: actions/checkout@v2
+
       - name: Set up docker
         run: docker buildx create --name builder --use
 
