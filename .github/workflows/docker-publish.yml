@@ -58,7 +58,7 @@ jobs:
       - name: Build arm64 image
         run: |
           ARCH=arm64
-          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME:$COMMIT_HASH:$ARCH
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME-$ARCH:$COMMIT_HASH
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
@@ -76,7 +76,7 @@ jobs:
       - name: Build amd64 image
         run: |
           ARCH=amd64
-          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME:$COMMIT_HASH:$ARCH
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME-$ARCH:$COMMIT_HASH
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
@@ -94,9 +94,9 @@ jobs:
       - name: created manifest
         run: |
           docker manifest create \
-            ghcr.io/${{ github.repository }}/$IMAGE_NAME:$COMMIT_HASH:latest \
-              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME:COMMIT_HASH:arm64 \
-              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME:COMMIT_HASH:amd64 
+            ghcr.io/${{ github.repository }}/$IMAGE_NAME:latest \
+              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME-arm64:COMMIT_HASH \
+              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME-amd64:COMMIT_HASH 
               
           docker manifest push ghcr.io/${{ github.repository }}/$IMAGE_NAME:$COMMIT_HASH:latest
 
