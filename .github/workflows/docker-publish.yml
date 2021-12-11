@@ -1,6 +1,10 @@
 name: Docker-Tensorflow-Publish
 
 on:
+  schedule:
+    # Recompile at 00:15 UTC on Sundays
+    - cron: '15 0 * * 0'
+    
   push:
     # Publish `main` as Docker `latest` image.
     branches:
@@ -18,7 +22,6 @@ on:
 
 env:
   IMAGE_NAME: tensorflow-build
-  PLATFORMS: linux/amd64
 
 jobs:
   # Run tests.
@@ -40,26 +43,62 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
-    steps:        
+    steps:
       - uses: actions/checkout@v2
 
       - name: Set up docker
         run: docker buildx create --name builder --use
 
+      - name: Get the git commit ID from the build file
+        run: echo "COMMIT_HASH=$(git ls-remote https://github.com/tensorflow/tensorflow.git HEAD | awk '{ print $1}'D)" >> $GITHUB_ENV
+
       - name: Log into registry
         run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ secrets.DOCKER_USER }} --password-stdin
 
-      - name: Push image
+      - name: Build arm64 image
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME
+          ARCH=arm64
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME:$VERSION:$ARCH
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
 
           echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
 
-          docker buildx build . --file Dockerfile --platform ${PLATFORMS} --tag $IMAGE_ID:latest --push
+          # build/push the image
+          docker buildx build . --file Dockerfile --platform linux/$ARCH --tag $IMAGE_ID --push --build-arg COMMIT_HASH=$COMMIT_HASH
+          
+          # cleanup
+          docker system prune -a
+          docker volume prune
 
+      - name: Build amd64 image
+        run: |
+          ARCH=amd64
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME:$VERSION:$ARCH
+
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+
+          # build/push the image
+          docker buildx build . --file Dockerfile --platform linux/$ARCH --tag $IMAGE_ID --push --build-arg COMMIT_HASH=$COMMIT_HASH
+          
+          # cleanup
+          docker system prune -a
+          docker volume prune
+
+      - name: created manifest
+        run: |
+          docker manifest create \
+            ghcr.io/${{ github.repository }}/$IMAGE_NAME:$VERSION:latest \
+              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME:arm64 \
+              --amend ghcr.io/${{ github.repository }}/$IMAGE_NAME:amd64 
+              
+          docker manifest push ghcr.io/${{ github.repository }}/$IMAGE_NAME:$VERSION:latest
 
       - name: set version and push tag
         id: tag_version
