@@ -22,7 +22,7 @@ on:
 
 env:
   IMAGE_NAME: tensorflow-build
-  PLATFORMS: linux/arm64,linux/amd64
+  PLATFORMS: linux/amd64
 
 jobs:
   # Run tests.
