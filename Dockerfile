@@ -12,7 +12,7 @@ RUN pip install --user keras_preprocessing --no-deps
 RUN npm install -g @bazel/bazelisk
 
 # Get the commit hash
-ARG COMMIT_HASH
+ARG COMMIT_HASH=main
 
 # Download the tensorlofw source code
 RUN git clone https://github.com/tensorflow/tensorflow.git /tensorflow-build

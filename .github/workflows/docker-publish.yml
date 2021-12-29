@@ -1,4 +1,4 @@
-name: Docker-Tensorflow-Publish
+name: Docker-Publish
 
 on:
   schedule:
@@ -17,68 +17,109 @@ on:
   workflow_dispatch:
     # Allow this event to be triggered in the github ui
 
-  # Run tests for any PRs.
-  pull_request:
 
 env:
   IMAGE_NAME: tensorflow-build
-  PLATFORMS: linux/arm64,linux/amd64
 
 jobs:
-  # Run tests.
-  # See also https://docs.docker.com/docker-hub/builds/automated-testing/
-  test:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
+  get-version:
+    runs-on: ubuntu-latest 
     steps:
-      - uses: actions/checkout@v2
-      
-      - name: Run tests
-        run: |
-            docker build . --file Dockerfile --tag $IMAGE_NAME
-
+    - id: version
+      run: |
+        # Get the latest version of tensorflow 
+        export TENSORFLOW_COMMIT=$(git ls-remote https://github.com/tensorflow/tensorflow.git HEAD | awk '{ print substr($1, 1, 8)}'D)
+        echo "::set-output name=tensorflow_commit::${TENSORFLOW_COMMIT}"
+        
+    outputs:
+      tensorflow_commit: ${{ steps.version.outputs.tensorflow_commit }}
+ 
   # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
-  push:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+  build:
+    needs: [get-version]
+    strategy:
+      matrix:
+        config: [{runson: ARM64, arch: ARM64}, {runson: ubuntu-latest, arch: AMD64}]
+    runs-on: ${{ matrix.config.runson }}
 
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@master
-        with:
-          platforms: all
-
+    steps:          
       - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
+        uses: docker/setup-buildx-action@v1    
+          
+      - name: checkout code
+        uses: actions/checkout@v2
 
-      - name: Get the git commit ID from the repo for latest version
-        run: echo "COMMIT_HASH=$(git ls-remote https://github.com/tensorflow/tensorflow.git HEAD | awk '{ print substr($1, 1, 8)}'D)" >> $GITHUB_ENV
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ matrix.config.arch }}-${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ matrix.config.arch }}-${{ runner.os }}-buildx-
 
       - name: Log into registry
         run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ secrets.DOCKER_USER }} --password-stdin
 
-      - name: Push image
+      - name: Build image
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME
+          # define the image id
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME-${{matrix.config.arch}}
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
 
           echo IMAGE_ID=$IMAGE_ID
-          echo COMMIT_HASH=$COMMIT_HASH
+          echo VERSION=${{ needs.get-version.outputs.tensorflow_commit}}
+          echo ARCH=${{matrix.config.arch}}
+          
+          # Build the image
+          docker buildx build .\
+            --cache-from "type=local,src=/tmp/.buildx-cache" \
+            --cache-to "type=local,dest=/tmp/.buildx-cache" \
+            --build-arg COMMIT_HASH=${{ needs.get-version.outputs.tensorflow_commit}} \
+            --push \
+            --tag $IMAGE_ID:${{ needs.get-version.outputs.tensorflow_commit}} \
+            --file Dockerfile \
+     
 
-          docker buildx build . --file Dockerfile --tag $IMAGE_ID:latest --tag $IMAGE_ID:$COMMIT_HASH --push  --build-arg COMMIT_HASH=$COMMIT_HASH
-#          docker buildx build . --file Dockerfile --platform ${PLATFORMS} --tag $IMAGE_ID:latest --tag $IMAGE_ID:$COMMIT_HASH --push  --build-arg COMMIT_HASH=$COMMIT_HASH
+  # Push the latest tag if everything build
+  push-latest:
+    needs: [get-version, build]
+    runs-on: ubuntu-latest 
 
-      - name: set version and push tag
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v5
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          custom_tag: ${{env.COMMIT_HASH}}
-          tag_prefix: ""
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1            
+          
+      - uses: actions/checkout@v2
+      
+      - name: Log into registry
+        run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ secrets.DOCKER_USER }} --password-stdin
+
+      - name: Run Test image
+        run: |
+          # Define the base image id
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+
+          # build a manifest file for this version
+          docker manifest create \
+            $IMAGE_ID:${{ needs.get-version.outputs.tensorflow_commit}} \
+            --amend $IMAGE_ID-arm64:${{ needs.get-version.outputs.tensorflow_commit}} \
+            --amend $IMAGE_ID-amd64:${{ needs.get-version.outputs.tensorflow_commit}} 
+
+          # push
+          docker manifest push $IMAGE_ID:${{ needs.get-version.outputs.tensorflow_commit}}
+
+          # tag as latest
+          docker manifest create \
+            $IMAGE_ID:latest \
+            --amend $IMAGE_ID-arm64:${{ needs.get-version.outputs.tensorflow_commit}} \
+            --amend $IMAGE_ID-amd64:${{ needs.get-version.outputs.tensorflow_commit}} 
+            
+          # push
+          docker manifest push $IMAGE_ID:latest
+
+  
+                    
