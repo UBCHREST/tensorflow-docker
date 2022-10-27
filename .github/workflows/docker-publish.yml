@@ -17,7 +17,6 @@ on:
   workflow_dispatch:
     # Allow this event to be triggered in the github ui
 
-
 env:
   IMAGE_NAME: tensorflow-build
 
