@@ -17,7 +17,6 @@ on:
   workflow_dispatch:
     # Allow this event to be triggered in the github ui
 
-
 env:
   IMAGE_NAME: tensorflow-build
 
@@ -29,7 +28,7 @@ jobs:
       run: |
         # Get the latest version of tensorflow 
         export TENSORFLOW_COMMIT=$(git ls-remote https://github.com/tensorflow/tensorflow.git HEAD | awk '{ print substr($1, 1, 8)}'D)
-        echo "::set-output name=tensorflow_commit::${TENSORFLOW_COMMIT}"
+        echo "tensorflow_commit=${TENSORFLOW_COMMIT}" >>$GITHUB_OUTPUT
         
     outputs:
       tensorflow_commit: ${{ steps.version.outputs.tensorflow_commit }}
@@ -44,10 +43,10 @@ jobs:
 
     steps:          
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1    
+        uses: docker/setup-buildx-action@v2    
           
       - name: checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Log into registry
         run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ secrets.DOCKER_USER }} --password-stdin
@@ -79,9 +78,9 @@ jobs:
 
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1            
+        uses: docker/setup-buildx-action@v2            
           
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       
       - name: Log into registry
         run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ secrets.DOCKER_USER }} --password-stdin
@@ -115,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest 
     steps:
       - name: Repository Dispatch to rebuild ABLATE dependcies
-        uses: peter-evans/repository-dispatch@v1
+        uses: peter-evans/repository-dispatch@v2
         with:
           repository: UBCHREST/ablate
           token: ${{ secrets.TRIGGER_PAT }}
