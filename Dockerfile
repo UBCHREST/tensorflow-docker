@@ -22,7 +22,7 @@ run git checkout $COMMIT_HASH
 RUN yes '' | ./configure
 
 # Build the c library
-RUN bazel build --config opt //tensorflow/tools/lib_package:libtensorflow --verbose_failures
+RUN bazel build //tensorflow/tools/lib_package:libtensorflow
 
 # Extract the result
 RUN mkdir /tensorflow
