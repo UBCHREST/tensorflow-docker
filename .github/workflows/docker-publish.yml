@@ -65,6 +65,7 @@ jobs:
           
           # Build the image
           docker buildx build .\
+            --provenance false \
             --build-arg COMMIT_HASH=${{ needs.get-version.outputs.tensorflow_commit}} \
             --push \
             --tag $IMAGE_ID:${{ needs.get-version.outputs.tensorflow_commit}} \
