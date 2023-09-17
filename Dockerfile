@@ -18,7 +18,7 @@ run git checkout $COMMIT_HASH
 RUN yes '' | ./configure
 
 # Build the c library
-RUN bazel build --config=nogcp --config=nonccl  //tensorflow/tools/lib_package:libtensorflow
+RUN bazel build --jobs 10 --config=fastbuild --config=nogcp --config=nonccl  //tensorflow/tools/lib_package:libtensorflow
 
 # Extract the result
 RUN mkdir /tensorflow
