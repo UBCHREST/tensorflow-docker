@@ -38,7 +38,7 @@ jobs:
     needs: [get-version]
     strategy:
       matrix:
-        arch: [ { runson: ARM64, id: -arm64 }, { runson: ubuntu-latest, id: -amd64 } ]
+        arch: [ { runson: ARM64, id: -arm64 }, { runson: ubuntu-large-disk-space, id: -amd64 } ]
     runs-on: ${{ matrix.arch.runson }}
 
     steps:          
