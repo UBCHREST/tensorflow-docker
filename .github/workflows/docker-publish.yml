@@ -38,7 +38,8 @@ jobs:
     needs: [get-version]
     strategy:
       matrix:
-        arch: [ { runson: ARM64, id: -arm64 }, { runson: ubuntu-large-disk-space, id: -amd64 } ]
+        arch: [ { runson: ubuntu-large-disk-space, id: -amd64 } ]
+        #arch: [ { runson: ARM64, id: -arm64 }, { runson: ubuntu-large-disk-space, id: -amd64 } ] # disabling arm64 until we can figure out either new machines to run these on or wipe/ reset Matt's old ones -klb
     runs-on: ${{ matrix.arch.runson }}
 
     steps:          
@@ -79,7 +80,8 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        arch: [ { runson: ARM64, id: -arm64 }, { runson: ubuntu-latest, id: -amd64 } ]
+        arch: [ { runson: ubuntu-latest, id: -amd64 } ]
+        #arch: [ { runson: ARM64, id: -arm64 }, { runson: ubuntu-latest, id: -amd64 } ]
 
     steps:
       - name: Set up Docker Buildx
